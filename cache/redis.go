@@ -29,10 +29,22 @@ func NewRedis(opts *RedisOpts) *Redis {
 		MaxIdle:     opts.MaxIdle,
 		IdleTimeout: time.Second * time.Duration(opts.IdleTimeout),
 		Dial: func() (redis.Conn, error) {
-			return redis.Dial("tcp", opts.Host,
-				redis.DialDatabase(opts.Database),
-				redis.DialPassword(opts.Password),
-			)
+			//连接
+			c, err := redis.Dial("tcp", opts.Host)
+			if err != nil {
+				return nil, err
+			}
+			//auth验证
+			if _, err := c.Do("AUTH", opts.Password); err != nil {
+				c.Close()
+				return nil, err
+			}
+			//选择数据库
+			if _, err := c.Do("SELECT", opts.Database); err != nil {
+				c.Close()
+				return nil, err
+			}
+			return c, err
 		},
 		TestOnBorrow: func(conn redis.Conn, t time.Time) error {
 			if time.Since(t) < time.Minute {
